@@ -2,9 +2,9 @@
 # Copyright (c) Blu Wireless Technology Ltd. 2023, All Rights Reserved
 
 
+import logging
 import re
 import unittest
-from io import StringIO
 from pathlib import Path
 from unittest.mock import mock_open, patch
 
@@ -25,11 +25,17 @@ class TestLoadConfig(unittest.TestCase):
 
     def _error_tests(self, config, err_msg):
         patcher = self.mock_file_read(config)
-        with patch("sys.stderr", new=StringIO()) as fake_stderr:
-            with self.assertRaisesRegex(SystemExit, r"1"):
+        dut_logger = logging.getLogger("checkpatch_hook")
+        with patch.object(dut_logger, "error") as mock_logger:
+            with self.assertRaisesRegex(SystemExit, r"1") as cm:
                 self.config_file.load_config()
-            error_message = fake_stderr.getvalue()
-            self.assertTrue(re.search(err_msg, error_message))
+                print(f"cm.exception: {cm.exception}")
+            error_message_found = any(
+                re.search(err_msg, call.args[0]) for call in mock_logger.mock_calls
+            )
+            self.assertTrue(
+                error_message_found, f"Expected error message not found in logger calls: {err_msg}"
+            )
         patcher.stop()
 
     def test_load_config_with_valid_file(self):
