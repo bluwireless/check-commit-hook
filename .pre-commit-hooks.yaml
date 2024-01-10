@@ -1,0 +1,15 @@
+- id: checkpatch
+  name: checkpatch
+  entry: checkpatch
+  language: python
+  require_serial: true
+  stages: [pre-commit]
+  verbose: true
+
+- id: checkpatch-ci
+  name: checkpatch
+  entry: checkpatch --ci
+  language: python
+  require_serial: true
+  stages: [manual]
+  verbose: true
