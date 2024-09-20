@@ -52,7 +52,6 @@ acient||ancient
 acitions||actions
 acitve||active
 acknowldegement||acknowledgment
-acknowledgement||acknowledgment
 ackowledge||acknowledge
 ackowledged||acknowledged
 acording||according
@@ -132,7 +131,6 @@ an user||a user
 an userspace||a userspace
 an one||a one
 analysator||analyzer
-ang||and
 anniversery||anniversary
 annoucement||announcement
 anomolies||anomalies
