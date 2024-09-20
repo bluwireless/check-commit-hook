@@ -3,7 +3,7 @@
   entry: checkpatch
   language: python
   require_serial: true
-  stages: [pre-commit]
+  stages: [pre-commit, manual]
   verbose: true
   types_or: [c]
   args: []
