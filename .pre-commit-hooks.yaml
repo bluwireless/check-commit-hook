@@ -6,3 +6,11 @@
   stages: [pre-commit, manual]
   types_or: [c]
   args: []
+
+- id: checkpatch-msg
+  name: checkpatch-msg
+  entry: checkpatch-msg
+  language: python
+  stages: [commit-msg, manual]
+  verbose: true
+  args: ["commit-msg", "--verbose"]

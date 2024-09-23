@@ -5,9 +5,10 @@ import importlib.resources
 import logging
 import sys
 from collections import defaultdict
+from datetime import datetime
 from logging import getLogger
 from pathlib import Path
-from subprocess import PIPE, run
+from subprocess import PIPE, check_output, run
 from typing import DefaultDict
 
 import yaml
@@ -19,6 +20,11 @@ logger.setLevel(logging.INFO)
 
 def _parse_args() -> dict:
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--commit-msg",
+        action="store_true",
+        help="Indicates that the commit-msg hook has been invoked",
+    )
     parser.add_argument(
         "files",
         nargs="*",
@@ -193,6 +199,87 @@ def _process_checkpatch_errors(output: str, errors: DefaultDict[str, list]) -> N
         )
 
 
+def commit_msg_hook(commit_files: list[Path]) -> None:
+    commit_msg = _read_commit_msg(commit_files)
+    patch = _msg_to_patch(commit_msg)
+    # TODO: make shared constant if possible
+    cmd = [
+        "checkpatch.pl",
+        "--strict",  # Be more annoying
+        "--no-tree",  # No kernel source tree present
+        # Some stuff to make parsing easier
+        "--emacs",
+        "--terse",
+        "--showfile",
+        "--no-summary",
+        "--color=never",
+        "--no-signoff",  # Don't require Signed-Off-By
+        # ignore some commit message errors
+        "--ignore",
+        "GERRIT_CHANGE_ID,COMMIT_LOG_LONG_LINE,EMAIL_SUBJECT,GIT_COMMIT_ID",
+    ]
+
+    logger.debug("Running checkpatch on commit message")
+    result = run(cmd, input=patch.encode(), stdout=PIPE)
+
+    if result.returncode != 0:
+        errors: DefaultDict[str, list] = defaultdict(lambda: [])
+        _process_checkpatch_errors(result.stdout.decode(), errors)
+        # TODO: more copy and paste
+        # print errors
+        for filename, f_errors in errors.items():
+            logger.error(f"{filename}:")
+            for error in f_errors:
+                logger.error(f'  {error["line"]}: {error["message"]}')
+        if errors:
+            sys.exit(1)
+
+
+def _read_commit_msg(commit_files: list[Path]) -> str:
+    if commit_files and commit_files[0].is_file():
+        logger.debug(f"Reading commit message from {commit_files[0]}")
+        commit_msg = commit_files[0].read_text()
+    else:
+        logger.debug("Reading commit message from log")
+        commit_msg = _get_commit_msg_from_log()
+    logger.debug(f"Commit message: {commit_msg}")
+    return commit_msg
+
+
+def _get_commit_msg_from_log() -> str:
+    # sha = check_output(["git", "log", "--no-merges", "--format=%H", "-n1"]).decode()
+    # logger.debug(f"Commit SHA: {sha}")
+    msg = check_output(["git", "log", "--no-merges", "--format=%B", "-n1"]).decode()
+    # logger.debug(f"Commit message: {msg}")
+    return msg
+
+
+# template used to add a patch-style header to a commit message
+PATCH_TEMPLATE = """\
+From: A Non <a.non@somewhere.com>
+Date: {current_datetime}
+Subject: [PATCH] {commit_msg}
+---
+ dummy.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/dummy.txt b/dummy.txt
+index 0000000..1111111 100644
+--- a/dummy.txt
++++ b/dummy.txt
+@@ -0,0 +1 @@
++dummy
+--
+"""
+
+
+def _msg_to_patch(commit_msg: str) -> str:
+    return PATCH_TEMPLATE.format(
+        commit_msg=commit_msg,
+        current_datetime=datetime.now().strftime("%a, %d %b %Y %H:%M:%S %z"),
+    )
+
+
 def main() -> None:
     """
     Entry point to be used when run as hook script.
@@ -201,7 +288,11 @@ def main() -> None:
     logger.debug(f"Running with args: {args}")
     if args["verbose"]:
         logger.setLevel(logging.DEBUG)
-    pre_commit_hook(args["config_file"], args["files"], args["fix_inplace"])
+
+    if args["commit_msg"]:
+        commit_msg_hook(args["files"])
+    else:
+        pre_commit_hook(args["config_file"], args["files"], args["fix_inplace"])
 
 
 if __name__ == "__main__":
