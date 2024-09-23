@@ -131,7 +131,7 @@ class TestPreProcessDirConfig(unittest.TestCase):
         expected_output = {
             "errors_enabled": ["error1", "common_error1"],
             "errors_ignored": ["error2", "common_error2"],
-            "max_line_length": "120",
+            "max_line_length": None,
         }
         result = self.config_file.pre_process_dir_config(config["DIR_CONFIGS"]["dir1"], config)
         self.assertEqual(result, expected_output)
@@ -191,12 +191,12 @@ class TestPreProcessDirConfig(unittest.TestCase):
         expected_output_dir1 = {
             "errors_enabled": ["error1", "common_error1"],
             "errors_ignored": ["error2", "common_error2"],
-            "max_line_length": "120",
+            "max_line_length": None,
         }
         expected_output_dir2 = {
             "errors_enabled": ["error3", "common_error1"],
             "errors_ignored": ["error4", "common_error2"],
-            "max_line_length": "120",
+            "max_line_length": None,
         }
         result = self.config_file.pre_process_dir_config(
             config["DIR_CONFIGS"]["dir1"], config.copy()
