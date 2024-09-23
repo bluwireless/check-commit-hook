@@ -23,6 +23,7 @@ setup(
         "checkpatch_hook/scripts/checkpatch.pl",
         "checkpatch_hook/data/const_structs.checkpatch",
         "checkpatch_hook/data/spelling.txt",
+        ".version",
     ],
     package_data={
         "checkpatch_hook": [
