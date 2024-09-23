@@ -92,7 +92,7 @@ class ConfigFile:
         # Default values
         dconfig["errors_enabled"] = dconfig.get("errors_enabled", [])
         dconfig["errors_ignored"] = dconfig.get("errors_ignored", [])
-        dconfig["max_line_length"] = dconfig.get("max_line_length", "120")
+        dconfig["max_line_length"] = dconfig.get("max_line_length", None)
 
         # Process magic keys
         for key, value in self.magic_error_keys.items():
@@ -144,9 +144,9 @@ def _run_checkpatch(
     fix_inplace: bool,
     errors: DefaultDict[str, list],
     config_dir: Path,
-    errors_enabled: list | None = None,
-    errors_ignored: list | None = None,
-    max_line_length: int | None = None,
+    errors_enabled: list,
+    errors_ignored: list,
+    max_line_length: int | str | None,
 ) -> None:
     cmd = [
         "checkpatch.pl",
@@ -164,9 +164,9 @@ def _run_checkpatch(
     if fix_inplace:
         cmd += ["--fix-inplace"]
 
-    if errors_ignored is not None and errors_ignored:
+    if errors_ignored:
         cmd += ["--ignore", ",".join(errors_ignored)]
-    elif errors_enabled is not None and errors_enabled:
+    elif errors_enabled:
         cmd += ["--types", ",".join(errors_enabled)]
     if max_line_length is not None:
         cmd += [f"--max-line-length={max_line_length}"]
