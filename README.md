@@ -1,20 +1,20 @@
 # check-commit-hook
 
-Based on [1] this repository contains a set of BW pre-commit hooks to be run on every git commit, the same hooks are used by the CI/CD pipeline to check the files.
+A [pre-commit hook](https://pre-commit.com/) implementation of the Linux kernel `checkpatch.pl` script.
 
 # Hooks
 
 ## Checkpatch
 
-Uses Linux kernel checkpatch to check for coding style errors in C code, Makefiles, etc. It uses a custom configuration file to ignore some errors and enforce others.
+Uses Linux kernel `checkpatch.pl` to check for coding style errors in C code, Makefiles, etc.
+
+See the docs for the script itself [here](https://docs.kernel.org/dev-tools/checkpatch.html)
 
 ### Custom configuration file
 
-The script uses a default configuration file located in `checkpatch_hook/data/checkpatch.yaml` but it can be overriden by a custom configuration file and passed to the script using the `--config-file` option.
-
-```
-checkpatch --config-file <config_file> <file>
-```
+The hook uses configuration file to specify which rules to enforce or ignore.
+A default configuration file is provided in `checkpatch_hook/data/checkpatch.yaml` but it can be overriden
+by a custom configuration file and passed to the script using the `--config-file` option.
 
 The configuration file is a YAML file with the following structure:
 
@@ -94,7 +94,7 @@ DIR_CONFIGS:
 
 ## Pre-commit
 
-To use the hooks in your local repository you need to install pre-commit [1] and add the following to your `.pre-commit-config.yaml` file:
+To use the hooks in your local repository you need to install `pre-commit` and add the following to your `.pre-commit-config.yaml` file:
 
 ```yaml
   - repo: https://github.com/bluwireless/check-commit-hook
@@ -104,6 +104,5 @@ To use the hooks in your local repository you need to install pre-commit [1] and
         args: [--config-file, checkpatch_custom.yaml]
 ```
 
-# References
-
-[1] - https://pre-commit.com/
+The `--fix-inplace` argument can be added to let `checkpatch` try to fix errors where it can.
+See the `checkpatch` docs.
