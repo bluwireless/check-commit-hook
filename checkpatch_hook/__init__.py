@@ -40,6 +40,11 @@ def _parse_args() -> dict:
         action="store_true",
         help="Verbose output",
     )
+    parser.add_argument(
+        "--fix-inplace",
+        action="store_true",
+        help="Enable checkplace in-place fixes",
+    )
     return vars(parser.parse_args())
 
 
@@ -99,7 +104,7 @@ class ConfigFile:
         return dconfig
 
 
-def pre_commit_hook(config_file: Path, commit_files: list[Path]) -> None:
+def pre_commit_hook(config_file: Path, commit_files: list[Path], fix_inplace: bool) -> None:
     config_file_obj = ConfigFile(config_file)
     config = config_file_obj.load_config()
     logger.debug(f"Config file @ {config_file.resolve()}")
@@ -121,8 +126,7 @@ def pre_commit_hook(config_file: Path, commit_files: list[Path]) -> None:
             and not p.is_symlink()
         ]
         if patch_files:
-            _run_checkpatch(patch_files, errors, config_dir, **post_dconfig)
-
+            _run_checkpatch(patch_files, fix_inplace, errors, config_dir, **post_dconfig)
         else:
             logger.debug(f"No files to check in {config_dir}")
 
@@ -137,6 +141,7 @@ def pre_commit_hook(config_file: Path, commit_files: list[Path]) -> None:
 
 def _run_checkpatch(
     patch_files: list[Path],
+    fix_inplace: bool,
     errors: DefaultDict[str, list],
     config_dir: Path,
     errors_enabled: list | None = None,
@@ -155,6 +160,9 @@ def _run_checkpatch(
         "--color=never",
         "--no-signoff",  # Don't require Signed-Off-By
     ]
+
+    if fix_inplace:
+        cmd += ["--fix-inplace"]
 
     if errors_ignored is not None and errors_ignored:
         cmd += ["--ignore", ",".join(errors_ignored)]
@@ -193,7 +201,7 @@ def main() -> None:
     logger.debug(f"Running with args: {args}")
     if args["verbose"]:
         logger.setLevel(logging.DEBUG)
-    pre_commit_hook(args["config_file"], args["files"])
+    pre_commit_hook(args["config_file"], args["files"], args["fix_inplace"])
 
 
 if __name__ == "__main__":
