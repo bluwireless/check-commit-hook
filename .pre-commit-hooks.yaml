@@ -4,5 +4,5 @@
   language: python
   require_serial: true
   stages: [pre-commit, manual]
-  types_or: [c]
+  types_or: [c, makefile, asm]
   args: []
