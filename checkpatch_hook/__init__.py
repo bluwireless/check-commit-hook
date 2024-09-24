@@ -14,7 +14,6 @@ import yaml
 
 logging.basicConfig()
 logger = getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 checkpatch_script_path = importlib.resources.files("checkpatch_hook.scripts").joinpath(
     "checkpatch.pl"
@@ -55,6 +54,7 @@ def _parse_args() -> dict:
 class ConfigFile:
     DEFAULT_DIR_KEY = "__default__"
     mandatory_keys = ["DIR_CONFIGS"]
+    # TODO: with YAML anchors there wouldn't really be a need for this approach
     magic_error_keys = {"errors_enabled": "ERRORS_COMMON", "errors_ignored": "IGNORES_COMMON"}
     optional_keys = ["IGNORED_FILES"]
     # TODO: Use schema based validation e.g., cfgv
@@ -114,6 +114,7 @@ def pre_commit_hook(config_file: Path, commit_files: list[Path], fix_inplace: bo
     config = config_file_obj.load_config()
     logger.debug(f"Config file @ {config_file.resolve()}")
 
+    result = True
     errors: DefaultDict[str, list] = defaultdict(list)
     # accumulate checkpatch errors for each configured dir
     for config_dir, dconfig in config["DIR_CONFIGS"].items():
@@ -126,22 +127,37 @@ def pre_commit_hook(config_file: Path, commit_files: list[Path], fix_inplace: bo
         patch_files = [
             p
             for p in commit_files
-            if p.is_relative_to(config_dir)
+            if check_config_applicable(config, config_dir, p)
             and p not in config.get("IGNORED_FILES", [])
             and not p.is_symlink()
         ]
         if patch_files:
-            _run_checkpatch(patch_files, fix_inplace, errors, config_dir, **post_dconfig)
+            result_dir = _run_checkpatch(
+                patch_files, fix_inplace, errors, config_dir, **post_dconfig
+            )
+            if not result_dir:
+                result = result_dir
         else:
             logger.debug(f"No files to check in {config_dir}")
 
-    # print errors
-    for filename, f_errors in errors.items():
-        logger.error(f"{filename}:")
-        for error in f_errors:
-            logger.error(f'  {error["line"]}: {error["message"]}')
-    if errors:
+    # log errors
+    for filename, file_errors in errors.items():
+        for error in file_errors:
+            logger.error("%s:%s: %s", filename, error["line"], error["message"])
+    if not result:
         sys.exit(1)
+
+
+def check_config_applicable(config: dict, config_dir: Path, path: Path) -> bool:
+    if str(config_dir) != ".":
+        return path.is_relative_to(config_dir)
+    for other_config_dir in config["DIR_CONFIGS"].keys():
+        if other_config_dir == ConfigFile.DEFAULT_DIR_KEY:
+            continue
+        other_config_path = Path(other_config_dir)
+        if path.is_relative_to(other_config_path):
+            return False
+    return True
 
 
 def _run_checkpatch(
@@ -152,7 +168,7 @@ def _run_checkpatch(
     errors_enabled: list,
     errors_ignored: list,
     max_line_length: int | str | None,
-) -> None:
+) -> bool:
     cmd = [
         str(checkpatch_script_path),
         "--strict",  # Be more annoying
@@ -183,6 +199,8 @@ def _run_checkpatch(
 
     if result.returncode != 0:
         _process_checkpatch_errors(result.stdout.decode(), errors)
+        return False
+    return True
 
 
 def _process_checkpatch_errors(output: str, errors: DefaultDict[str, list]) -> None:
@@ -203,9 +221,10 @@ def main() -> None:
     Entry point to be used when run as hook script.
     """
     args = _parse_args()
-    logger.debug(f"Running with args: {args}")
     if args["verbose"]:
         logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
     pre_commit_hook(args["config_file"], args["files"], args["fix_inplace"])
 
 

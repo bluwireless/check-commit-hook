@@ -33,13 +33,5 @@ DIR_CONFIGS:
   __default__:
     errors_ignored:
       - IGNORES_COMMON
-      - VOLATILE
-      - NEW_TYPEDEFS
-      - AVOID_EXTERNS
-      - MACRO_ARG_REUSE
-      - PREFER_KERNEL_TYPES
-      - PREFER_PACKED
-      - SSCANF_TO_KSTRTO
-    max_line_length: 120
 
 IGNORED_FILES: []
