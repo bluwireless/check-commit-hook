@@ -113,7 +113,7 @@ def pre_commit_hook(config_file: Path, commit_files: list[Path], fix_inplace: bo
     config = config_file_obj.load_config()
     logger.debug(f"Config file @ {config_file.resolve()}")
 
-    errors: DefaultDict[str, list] = defaultdict(lambda: [])
+    errors: DefaultDict[str, list] = defaultdict(list)
     # accumulate checkpatch errors for each configured dir
     for config_dir, dconfig in config["DIR_CONFIGS"].items():
         # Special case for the default config
