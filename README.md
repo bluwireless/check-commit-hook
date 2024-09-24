@@ -38,12 +38,12 @@ Note: Either `errors_enabled` or `errors_ignored` are enforced, not both.
 
 The configuration file supports some magic keys that make it easier to configure the script.
 
-##### `__default____`
+##### `__default__`
 
-The `__default____` key can be used to apply the same configuration to all the files in the repository.
+The `__default__` key can be used to apply the same configuration to all the files in the repository.
 
 ```yaml
-__default____:
+__default__:
   errors_ignored:
     - <checkpatch option>
     - <checkpatch option>
