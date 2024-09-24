@@ -1,0 +1,39 @@
+[project]
+name = "checkpatch-hook"
+dynamic = ["version"]
+description = "Checkpatch Pre-Commit Hook"
+authors = [
+    {name = "Blu Wireless Technology Ltd.", email = "info@bluwireless.com"}
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml>=6.0.2",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "tox>=4.18.0",
+    "pytest>=8.3.2",
+    "coverage>=7.6.1",
+    "pytest-cov>=5.0.0",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[project.scripts]
+checkpatch = "checkpatch_hook:main"
+
+[tool.coverage.report]
+exclude_also = [
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "@(abc\\.)?abstractmethod",
+]

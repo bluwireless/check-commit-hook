@@ -16,6 +16,10 @@ logging.basicConfig()
 logger = getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+checkpatch_script_path = importlib.resources.files("checkpatch_hook.scripts").joinpath(
+    "checkpatch.pl"
+)
+
 
 def _parse_args() -> dict:
     parser = argparse.ArgumentParser()
@@ -149,7 +153,7 @@ def _run_checkpatch(
     max_line_length: int | str | None,
 ) -> None:
     cmd = [
-        "checkpatch.pl",
+        str(checkpatch_script_path),
         "--strict",  # Be more annoying
         "--no-tree",  # No kernel source tree present
         # Some stuff to make parsing easier
