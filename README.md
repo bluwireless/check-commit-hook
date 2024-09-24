@@ -8,7 +8,7 @@ A [pre-commit hook](https://pre-commit.com/) implementation of the Linux kernel 
 
 Uses Linux kernel `checkpatch.pl` to check for coding style errors in C code, Makefiles, etc.
 
-See the docs for the script itself [here](https://docs.kernel.org/dev-tools/checkpatch.html)
+See the docs for the script itself [here](https://docs.kernel.org/dev-tools/checkpatch.html).
 
 ### Custom configuration file
 

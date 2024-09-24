@@ -102,7 +102,8 @@ class ConfigFile:
         for key, value in self.magic_error_keys.items():
             if key in dconfig and value in dconfig[key]:
                 if value not in config.keys():
-                    raise RuntimeError(f"Unknown key {value} in {self.config_file_path}")
+                    logger.error(f"Unknown key {value} in {self.config_file_path}")
+                    sys.exit(1)
                 dconfig[key].extend(config[value])
                 dconfig[key].remove(value)
         return dconfig

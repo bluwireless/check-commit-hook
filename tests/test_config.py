@@ -1,212 +1,194 @@
-#!/usr/bin/env python3
-# Copyright (c) Blu Wireless Technology Ltd. 2023, All Rights Reserved
-
-
 import logging
 import re
-import unittest
 from pathlib import Path
-from unittest.mock import mock_open, patch
+from typing import Any
+from unittest.mock import patch
+
+from pytest import fixture, raises
 
 from checkpatch_hook import ConfigFile
 
 
-class TestLoadConfig(unittest.TestCase):
-    def setUp(self):
-        self.maxDiff = None
-        # This function under test doesn't read the config file, so we can use a dummy file
-        self.config_file = ConfigFile(Path("dummy.yaml"))
-
-    def mock_file_read(self, data):
-        mock = mock_open(read_data=data)
-        patcher = patch("pathlib.Path.open", mock)
-        patcher.start()
-        return patcher
-
-    def _error_tests(self, config, err_msg):
-        patcher = self.mock_file_read(config)
-        dut_logger = logging.getLogger("checkpatch_hook")
-        with patch.object(dut_logger, "error") as mock_logger:
-            with self.assertRaisesRegex(SystemExit, r"1") as cm:
-                self.config_file.load_config()
-                print(f"cm.exception: {cm.exception}")
-            error_message_found = any(
-                re.search(err_msg, call.args[0]) for call in mock_logger.mock_calls
-            )
-            self.assertTrue(
-                error_message_found, f"Expected error message not found in logger calls: {err_msg}"
-            )
-        patcher.stop()
-
-    def test_load_config_with_valid_file(self):
-        config = """
-        DIR_CONFIGS:
-            dir1:
-                errors_enabled:
-                - error1
-                errors_ignored:
-                - error2
-                max_line_length: '100'
-        """
-        patcher = self.mock_file_read(config)
-        config = self.config_file.load_config()
-        self.assertIsInstance(config, dict)
-        self.assertIn("DIR_CONFIGS", config)
-        patcher.stop()
-
-    def test_load_config_with_missing_mandatory_key(self):
-        config = 'INVALID_KEY: ["dir1", "dir2"]'
-        self._error_tests(config, r"Missing mandatory key DIR_CONFIGS")
-
-    def test_load_config_with_invalid_value(self):
-        config = 'DIR_CONFIGS: ["dir1", "dir2"]'
-        self._error_tests(config, r"Invalid type for key DIR_CONFIGS")
-
-    def test_load_config_with_unknown_key(self):
-        config = """
-        UNKNOWN_KEY: 'value'
-        DIR_CONFIGS:
-            dir1:
-                errors_enabled:
-                - error1
-                errors_ignored:
-                - error2
-                max_line_length: '100'
-        """
-        self._error_tests(config, r"Unknown key UNKNOWN_KEY")
-
-    def test_load_config_with_invalid_type_for_ignored_files(self):
-        config = """
-        DIR_CONFIGS:
-            dir1:
-                errors_enabled:
-                - error1
-                errors_ignored:
-                - error2
-                max_line_length: '100'
-        IGNORED_FILES: 'invalid_type'
-        """
-        self._error_tests(config, r"Invalid type for key IGNORED_FILES")
-
-    def test_load_config_with_multiple_dir(self):
-        config = """
-        DIR_CONFIGS:
-            dir1:
-                errors_enabled:
-                - error1
-                errors_ignored:
-                - error2
-                max_line_length: '100'
-            dir2:
-                errors_enabled:
-                - error1
-                errors_ignored:
-                - error2
-                max_line_length: '100'
-        """
-        patcher = self.mock_file_read(config)
-        config = self.config_file.load_config()
-        self.assertIsInstance(config, dict)
-        self.assertIn("DIR_CONFIGS", config)
-        patcher.stop()
+@fixture(scope="function")
+def config_file(tmp_path: Path) -> ConfigFile:
+    return ConfigFile(tmp_path / "test_config.yaml")
 
 
-class TestPreProcessDirConfig(unittest.TestCase):
-    def setUp(self):
-        self.maxDiff = None
-        # This function under test doesn't read the config file, so we can use a dummy file
-        self.config_file = ConfigFile("dummy.yaml")
+def _setup_config_file(config_file: ConfigFile, config_text: str) -> None:
+    config_file.config_file_path.write_text(config_text)
 
-    def test_pre_process_dir_config_with_magic_keys_in_dconfig(self):
-        config = {
-            "ERRORS_COMMON": ["common_error1"],
-            "IGNORES_COMMON": ["common_error2"],
-            "DIR_CONFIGS": {
-                "dir1": {
-                    "errors_enabled": ["error1", "ERRORS_COMMON"],
-                    "errors_ignored": ["error2", "IGNORES_COMMON"],
-                }
+
+def _error_tests(config_file: ConfigFile, err_msg: str) -> None:
+    dut_logger = logging.getLogger("checkpatch_hook")
+    with patch.object(dut_logger, "error") as mock_logger:
+        with raises(SystemExit):
+            config_file.load_config()
+
+        assert any(re.search(err_msg, call.args[0]) for call in mock_logger.mock_calls)
+
+
+def test_load_config_with_valid_file(config_file: ConfigFile) -> None:
+    config_text = """
+    DIR_CONFIGS:
+        dir1:
+            errors_enabled:
+            - error1
+            errors_ignored:
+            - error2
+            max_line_length: '100'
+    """
+    _setup_config_file(config_file, config_text)
+    config = config_file.load_config()
+    assert isinstance(config, dict)
+    # TODO: necessary to have this level?
+    assert "DIR_CONFIGS" in config
+
+
+def test_load_config_with_missing_mandatory_key(config_file: ConfigFile) -> None:
+    config_text = 'INVALID_KEY: ["dir1", "dir2"]'
+    _setup_config_file(config_file, config_text)
+    _error_tests(config_file, r"Missing mandatory key DIR_CONFIGS")
+
+
+def test_load_config_with_invalid_value(config_file: ConfigFile) -> None:
+    config_text = 'DIR_CONFIGS: ["dir1", "dir2"]'
+    _setup_config_file(config_file, config_text)
+    _error_tests(config_file, r"Invalid type for key DIR_CONFIGS")
+
+
+def test_load_config_with_unknown_key(config_file: ConfigFile) -> None:
+    config_text = """
+    UNKNOWN_KEY: 'value'
+    DIR_CONFIGS:
+        dir1:
+            errors_enabled:
+            - error1
+            errors_ignored:
+            - error2
+            max_line_length: '100'
+    """
+    _setup_config_file(config_file, config_text)
+    _error_tests(config_file, r"Unknown key UNKNOWN_KEY")
+
+
+def test_load_config_with_invalid_type_for_ignored_files(config_file: ConfigFile) -> None:
+    config_text = """
+    DIR_CONFIGS:
+        dir1:
+            errors_enabled:
+            - error1
+            errors_ignored:
+            - error2
+            max_line_length: '100'
+    IGNORED_FILES: 'invalid_type'
+    """
+    _setup_config_file(config_file, config_text)
+    _error_tests(config_file, r"Invalid type for key IGNORED_FILES")
+
+
+def test_load_config_with_multiple_dir(config_file: ConfigFile) -> None:
+    config_text = """
+    DIR_CONFIGS:
+        dir1:
+            errors_enabled:
+            - error1
+            errors_ignored:
+            - error2
+            max_line_length: '100'
+        dir2:
+            errors_enabled:
+            - error1
+            errors_ignored:
+            - error2
+            max_line_length: '100'
+    """
+    _setup_config_file(config_file, config_text)
+    config = config_file.load_config()
+    assert "DIR_CONFIGS" in config
+    assert "dir1" in config["DIR_CONFIGS"]
+    assert "dir2" in config["DIR_CONFIGS"]
+
+
+def test_pre_process_dir_config_with_magic_keys_in_dconfig(config_file: ConfigFile) -> None:
+    config: dict[str, Any] = {
+        "ERRORS_COMMON": ["common_error1"],
+        "IGNORES_COMMON": ["common_error2"],
+        "DIR_CONFIGS": {
+            "dir1": {
+                "errors_enabled": ["error1", "ERRORS_COMMON"],
+                "errors_ignored": ["error2", "IGNORES_COMMON"],
+            }
+        },
+    }
+    expected_output = {
+        "errors_enabled": ["error1", "common_error1"],
+        "errors_ignored": ["error2", "common_error2"],
+        "max_line_length": None,
+    }
+    result = config_file.pre_process_dir_config(config["DIR_CONFIGS"]["dir1"], config)
+    assert result == expected_output
+
+
+def test_pre_process_dir_config_with_no_magic_keys_in_dconfig(config_file: ConfigFile) -> None:
+    config: dict[str, Any] = {
+        "ERRORS_COMMON": ["common_error1"],
+        "IGNORES_COMMON": ["common_error2"],
+        "DIR_CONFIGS": {
+            "dir1": {
+                "errors_enabled": ["error1"],
+                "errors_ignored": ["error2"],
+                "max_line_length": "100",
+            }
+        },
+    }
+    expected_output = {
+        "errors_enabled": ["error1"],
+        "errors_ignored": ["error2"],
+        "max_line_length": "100",
+    }
+    result = config_file.pre_process_dir_config(config["DIR_CONFIGS"]["dir1"], config)
+    assert result == expected_output
+
+
+def test_pre_process_dir_config_with_empty_config(config_file: ConfigFile) -> None:
+    config: dict[str, Any] = {
+        "DIR_CONFIGS": {
+            "dir1": {
+                "errors_enabled": ["error1", "ERRORS_COMMON"],
+                "errors_ignored": ["error2", "IGNORES_COMMON"],
+            }
+        },
+    }
+    with raises(SystemExit):
+        config_file.pre_process_dir_config(config["DIR_CONFIGS"]["dir1"], config)
+
+
+def test_pre_process_dir_config_with_multiple_dirs(config_file: ConfigFile) -> None:
+    config: dict[str, Any] = {
+        "ERRORS_COMMON": ["common_error1"],
+        "IGNORES_COMMON": ["common_error2"],
+        "DIR_CONFIGS": {
+            "dir1": {
+                "errors_enabled": ["error1", "ERRORS_COMMON"],
+                "errors_ignored": ["error2", "IGNORES_COMMON"],
             },
-        }
-        expected_output = {
-            "errors_enabled": ["error1", "common_error1"],
-            "errors_ignored": ["error2", "common_error2"],
-            "max_line_length": None,
-        }
-        result = self.config_file.pre_process_dir_config(config["DIR_CONFIGS"]["dir1"], config)
-        self.assertEqual(result, expected_output)
-
-    def test_pre_process_dir_config_with_no_magic_keys_in_dconfig(self):
-        config = {
-            "ERRORS_COMMON": ["common_error1"],
-            "IGNORES_COMMON": ["common_error2"],
-            "DIR_CONFIGS": {
-                "dir1": {
-                    "errors_enabled": ["error1"],
-                    "errors_ignored": ["error2"],
-                    "max_line_length": "100",
-                }
+            "dir2": {
+                "errors_enabled": ["error3", "ERRORS_COMMON"],
+                "errors_ignored": ["error4", "IGNORES_COMMON"],
             },
-        }
-        expected_output = {
-            "errors_enabled": ["error1"],
-            "errors_ignored": ["error2"],
-            "max_line_length": "100",
-        }
-        result = self.config_file.pre_process_dir_config(config["DIR_CONFIGS"]["dir1"], config)
-        self.assertEqual(result, expected_output)
-
-    def test_pre_process_dir_config_with_empty_config(self):
-        config = {
-            "DIR_CONFIGS": {
-                "dir1": {
-                    "errors_enabled": ["error1", "ERRORS_COMMON"],
-                    "errors_ignored": ["error2", "IGNORES_COMMON"],
-                }
-            },
-        }
-        self.assertRaisesRegex(
-            Exception,
-            "Unknown key ERRORS_COMMON",
-            self.config_file.pre_process_dir_config,
-            config["DIR_CONFIGS"]["dir1"],
-            config,
-        )
-
-    def test_pre_process_dir_config_with_multiple_dirs(self):
-        config = {
-            "ERRORS_COMMON": ["common_error1"],
-            "IGNORES_COMMON": ["common_error2"],
-            "DIR_CONFIGS": {
-                "dir1": {
-                    "errors_enabled": ["error1", "ERRORS_COMMON"],
-                    "errors_ignored": ["error2", "IGNORES_COMMON"],
-                },
-                "dir2": {
-                    "errors_enabled": ["error3", "ERRORS_COMMON"],
-                    "errors_ignored": ["error4", "IGNORES_COMMON"],
-                },
-            },
-        }
-        expected_output_dir1 = {
-            "errors_enabled": ["error1", "common_error1"],
-            "errors_ignored": ["error2", "common_error2"],
-            "max_line_length": None,
-        }
-        expected_output_dir2 = {
-            "errors_enabled": ["error3", "common_error1"],
-            "errors_ignored": ["error4", "common_error2"],
-            "max_line_length": None,
-        }
-        result = self.config_file.pre_process_dir_config(
-            config["DIR_CONFIGS"]["dir1"], config.copy()
-        )
-        self.assertEqual(result, expected_output_dir1)
-        result = self.config_file.pre_process_dir_config(
-            config["DIR_CONFIGS"]["dir2"], config.copy()
-        )
-        self.assertEqual(result, expected_output_dir2)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        },
+    }
+    expected_output_dir1 = {
+        "errors_enabled": ["error1", "common_error1"],
+        "errors_ignored": ["error2", "common_error2"],
+        "max_line_length": None,
+    }
+    expected_output_dir2 = {
+        "errors_enabled": ["error3", "common_error1"],
+        "errors_ignored": ["error4", "common_error2"],
+        "max_line_length": None,
+    }
+    result = config_file.pre_process_dir_config(config["DIR_CONFIGS"]["dir1"], config.copy())
+    assert result == expected_output_dir1
+    result = config_file.pre_process_dir_config(config["DIR_CONFIGS"]["dir2"], config.copy())
+    assert result == expected_output_dir2
