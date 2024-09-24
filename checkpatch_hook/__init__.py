@@ -59,31 +59,31 @@ class ConfigFile:
     optional_keys = ["IGNORED_FILES"]
     # TODO: Use schema based validation e.g., cfgv
 
-    def __init__(self, config_file: Path):
-        self.config_file = config_file
+    def __init__(self, config_file_path: Path):
+        self.config_file_path = config_file_path
 
     def load_config(self) -> dict:
         try:
-            with self.config_file.open("r") as file:
+            with self.config_file_path.open("r") as file:
                 config = yaml.safe_load(file)
             if config is None or not isinstance(config, dict) or not config:
                 raise RuntimeError("Config file is empty")
             for key in self.mandatory_keys:
                 if key not in config:
-                    raise RuntimeError(f"Missing mandatory key {key} in {self.config_file}")
+                    raise RuntimeError(f"Missing mandatory key {key} in {self.config_file_path}")
                 if not isinstance(config[key], dict) or not config[key]:
-                    raise RuntimeError(f"Invalid type for key {key} in {self.config_file}")
+                    raise RuntimeError(f"Invalid type for key {key} in {self.config_file_path}")
             # Check for unknown keys
             for key in config.keys():
                 if key not in self.mandatory_keys + self.optional_keys + list(
                     self.magic_error_keys.values()
                 ):
-                    raise RuntimeError(f"Unknown key {key} in {self.config_file}")
+                    raise RuntimeError(f"Unknown key {key} in {self.config_file_path}")
             if not isinstance(config.get("IGNORED_FILES", []), list):
-                raise RuntimeError(f"Invalid type for key IGNORED_FILES in {self.config_file}")
+                raise RuntimeError(f"Invalid type for key IGNORED_FILES in {self.config_file_path}")
             return config
         except FileNotFoundError:
-            logger.error(f"Config file not found: {self.config_file}")
+            logger.error(f"Config file not found: {self.config_file_path}")
             sys.exit(1)
         except yaml.YAMLError as e:
             logger.error(f"Error loading YAML config file: {e}")
@@ -102,7 +102,7 @@ class ConfigFile:
         for key, value in self.magic_error_keys.items():
             if key in dconfig and value in dconfig[key]:
                 if value not in config.keys():
-                    raise RuntimeError(f"Unknown key {value} in {self.config_file}")
+                    raise RuntimeError(f"Unknown key {value} in {self.config_file_path}")
                 dconfig[key].extend(config[value])
                 dconfig[key].remove(value)
         return dconfig
