@@ -13,11 +13,13 @@ dependencies = [
 
 [tool.uv]
 dev-dependencies = [
-    "tox>=4.18.0",
     "pytest>=8.3.2",
     "coverage>=7.6.1",
     "pytest-cov>=5.0.0",
 ]
+
+[tool.pytest.ini_options]
+addopts = "--cov=checkpatch_hook --cov-branch"
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
